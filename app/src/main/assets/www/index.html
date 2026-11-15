@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <title>Spooky Doodle Jump Infinite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap');
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            overscroll-behavior: none;
+            font-family: 'Nunito', sans-serif;
+            background-color: #020617;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .font-game {
+            font-family: 'Fredoka One', cursive;
+        }
+
+        .safe-screen {
+            padding-top: max(1rem, env(safe-area-inset-top));
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+            padding-left: max(1rem, env(safe-area-inset-left));
+            padding-right: max(1rem, env(safe-area-inset-right));
+        }
+
+        .safe-hud {
+            top: max(0.75rem, env(safe-area-inset-top));
+        }
+
+        .safe-controls {
+            bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+
+        /* Glassmorphism UI panel */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Arcade Button Styles */
+        .btn-arcade {
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+            box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45);
+        }
+        .btn-arcade:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+        }
+
+        /* Glowing text effect */
+        .glow-text {
+            text-shadow: 0 0 12px rgba(234, 179, 8, 0.55);
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+    </style>
+<script src="/_aistudio-iframe.js?v=1f94f900"></script></head>
+<body class="h-[100dvh] w-screen overflow-hidden flex items-center justify-center bg-slate-950 text-white select-none">
+
+    <!-- Main Game Container (Full-bleed on Android vertical, framed on desktop) -->
+    <div id="game-container" class="relative w-full h-full sm:max-w-md sm:max-h-[900px] sm:h-[94dvh] overflow-hidden sm:rounded-3xl shadow-2xl bg-slate-900 border-0 sm:border-4 border-slate-800 flex flex-col">
+
+        <!-- HTML Canvas Layer -->
+        <canvas id="gameCanvas" class="w-full h-full absolute inset-0 z-0"></canvas>
+
+        <!-- Non-blocking Toast Banner -->
+        <div id="toast-banner" class="hidden absolute top-16 left-4 right-4 z-50 bg-slate-900/95 border border-amber-400/50 text-amber-200 text-xs font-bold px-4 py-2.5 rounded-xl shadow-xl text-center"></div>
+
+        <!-- Top HUD Overlay (Visible during gameplay) -->
+        <div id="hud" class="hidden safe-hud absolute left-3 right-3 z-10 flex justify-between items-center pointer-events-none gap-2">
+            <div class="flex items-center gap-2 bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 shadow-lg">
+                <i class="fa-solid fa-trophy text-amber-400 text-base"></i>
+                <span id="hud-score" class="font-game text-xl text-yellow-300 tabular-nums">0</span>
+            </div>
+
+            <div class="flex items-center gap-2 pointer-events-auto">
+                <div id="hud-gyro-pill" class="hidden items-center gap-1.5 bg-slate-900/85 backdrop-blur-md px-2.5 py-2 rounded-2xl border border-emerald-500/30 text-[11px] font-bold text-emerald-300">
+                    <i class="fa-solid fa-compass"></i>
+                    <span id="hud-tilt-deg" class="tabular-nums">0°</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md px-3 py-2 rounded-2xl border border-white/10 shadow-lg">
+                    <i class="fa-solid fa-coins text-yellow-400 text-base"></i>
+                    <span id="hud-coins" class="font-game text-lg text-yellow-400 tabular-nums">0</span>
+                </div>
+                <button id="pause-btn" aria-label="Pause Game" class="w-11 h-11 bg-slate-800/90 hover:bg-slate-700 text-white rounded-2xl border border-white/10 flex items-center justify-center shadow-lg transition-transform active:scale-95">
+                    <i class="fa-solid fa-pause text-base"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Android Vertical Touch & Gyro Controls -->
+        <div id="touch-controls" class="hidden safe-controls absolute left-3 right-3 z-10 justify-between items-end pointer-events-none gap-2">
+            <!-- Left/Right Thumb Pads (for non-gyro fallback or hybrid control) -->
+            <div class="flex items-center gap-2 pointer-events-auto">
+                <button id="touch-left-btn" aria-label="Move Left" class="w-14 h-14 rounded-2xl bg-slate-900/70 active:bg-emerald-500/40 border border-white/15 flex items-center justify-center text-slate-200 backdrop-blur-sm active:scale-95 transition-transform">
+                    <i class="fa-solid fa-chevron-left text-lg"></i>
+                </button>
+                <button id="touch-right-btn" aria-label="Move Right" class="w-14 h-14 rounded-2xl bg-slate-900/70 active:bg-emerald-500/40 border border-white/15 flex items-center justify-center text-slate-200 backdrop-blur-sm active:scale-95 transition-transform">
+                    <i class="fa-solid fa-chevron-right text-lg"></i>
+                </button>
+            </div>
+
+            <button id="mobile-shoot-btn" aria-label="Shoot" class="pointer-events-auto w-14 h-14 bg-rose-600/90 active:bg-rose-500 text-white rounded-full border-2 border-rose-300 flex items-center justify-center shadow-xl font-game text-xl active:scale-95 transition-transform">
+                <i class="fa-solid fa-crosshairs"></i>
+            </button>
+        </div>
+
+        <!-- START MENU SCREEN (Optimized for Android Vertical) -->
+        <div id="start-screen" class="absolute inset-0 z-20 flex flex-col justify-between safe-screen glass-panel overflow-y-auto">
+            <div class="text-center pt-2 shrink-0">
+                <div class="inline-block px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[11px] tracking-widest uppercase mb-1.5 border border-emerald-500/30">
+                    Android Vertical Arcade
+                </div>
+                <h1 class="font-game text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-b from-amber-300 via-orange-400 to-rose-500 glow-text leading-tight">
+                    DOODLE<br/>JUMP
+                </h1>
+                <p class="text-slate-400 text-xs mt-1">Expanded Multiverse, Skins & Gyro</p>
+            </div>
+
+            <!-- Character Preview Display -->
+            <div class="flex flex-col items-center justify-center my-auto py-3 shrink-0">
+                <div class="relative w-28 h-28 bg-slate-800/60 rounded-3xl border-2 border-amber-500/40 flex items-center justify-center shadow-inner">
+                    <canvas id="skin-preview-canvas" width="100" height="100"></canvas>
+                    <div class="absolute -bottom-3 bg-amber-500 text-slate-950 font-game text-[11px] px-3 py-0.5 rounded-full shadow-md uppercase tracking-wider whitespace-nowrap" id="current-skin-name">
+                        Classic Doodler
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mt-6 w-full max-w-xs">
+                    <button id="open-shop-btn" class="btn-arcade bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-game px-4 py-3 rounded-2xl flex items-center justify-center gap-2 text-sm min-h-[44px]">
+                        <i class="fa-solid fa-shirt"></i> Skins (12)
+                    </button>
+                    <button id="open-maps-btn" class="btn-arcade bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-game px-4 py-3 rounded-2xl flex items-center justify-center gap-2 text-sm min-h-[44px]">
+                        <i class="fa-solid fa-map"></i> Maps (10)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Gyro & Start Controls -->
+            <div class="space-y-3 pt-2 shrink-0">
+                <!-- Gyro Controls Card -->
+                <div class="bg-slate-900/80 border border-white/10 rounded-2xl p-3 space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <button id="gyro-enable-btn" class="flex items-center gap-2 text-xs font-bold text-slate-200 hover:text-emerald-300 transition-colors min-h-[36px]">
+                            <i class="fa-solid fa-compass text-emerald-400"></i>
+                            <span id="gyro-status">Gyro: Ready</span>
+                        </button>
+                        <button id="gyro-calibrate-btn" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-white/10 min-h-[32px]">
+                            Calibrate Tilt
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 text-[11px] text-slate-400">
+                        <span>Tilt Sensitivity</span>
+                        <div class="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-white/10">
+                            <button data-sens="0.75" class="gyro-sens-btn px-2 py-1 rounded-md text-slate-400">Low</button>
+                            <button data-sens="1.0" class="gyro-sens-btn px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">Normal</button>
+                            <button data-sens="1.45" class="gyro-sens-btn px-2 py-1 rounded-md text-slate-400">High</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="play-btn" class="btn-arcade w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-game text-2xl py-3.5 rounded-2xl flex items-center justify-center gap-3 shadow-emerald-900/50 min-h-[54px]">
+                    <i class="fa-solid fa-play text-xl"></i> PLAY GAME
+                </button>
+
+                <div class="flex justify-between items-center text-xs text-slate-400 px-1 pt-0.5">
+                    <span class="tabular-nums">Best: <strong id="menu-best-score" class="text-emerald-400">0</strong></span>
+                    <button id="audio-toggle-btn" class="hover:text-amber-400 transition-colors flex items-center gap-1.5 min-h-[36px]">
+                        <i class="fa-solid fa-volume-high" id="audio-icon"></i> Sound ON
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SHOP / SKIN SELECT MODAL (Flex-1 scrollable for all Android heights) -->
+        <div id="shop-screen" class="hidden absolute inset-0 z-30 glass-panel safe-screen flex flex-col gap-3">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3 shrink-0">
+                <h2 class="font-game text-xl text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-shirt"></i> Character Roster
+                </h2>
+                <div class="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-white/10">
+                    <i class="fa-solid fa-coins text-yellow-400 text-sm"></i>
+                    <span id="shop-coins" class="font-game text-yellow-300 text-sm tabular-nums">0</span>
+                </div>
+            </div>
+
+            <div id="skins-grid" class="grid grid-cols-2 gap-2.5 flex-1 min-h-0 overflow-y-auto pr-1">
+                <!-- Dynamic skin items populated by JS -->
+            </div>
+
+            <button id="close-shop-btn" class="btn-arcade w-full bg-slate-800 hover:bg-slate-700 font-game py-3.5 rounded-2xl border border-white/10 text-slate-200 shrink-0 min-h-[48px]">
+                <i class="fa-solid fa-arrow-left mr-2"></i> Back to Menu
+            </button>
+        </div>
+
+        <!-- MAP SELECT MODAL (Flex-1 scrollable for all Android heights) -->
+        <div id="maps-screen" class="hidden absolute inset-0 z-30 glass-panel safe-screen flex flex-col gap-3">
+            <div class="border-b border-white/10 pb-3 shrink-0">
+                <h2 class="font-game text-xl text-purple-400 flex items-center gap-2">
+                    <i class="fa-solid fa-earth-americas"></i> Map Multiverse
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Select your background and platform theme</p>
+            </div>
+
+            <div id="maps-grid" class="grid grid-cols-1 gap-2.5 flex-1 min-h-0 overflow-y-auto pr-1">
+                <!-- Dynamic map items populated by JS -->
+            </div>
+
+            <button id="close-maps-btn" class="btn-arcade w-full bg-slate-800 hover:bg-slate-700 font-game py-3.5 rounded-2xl border border-white/10 text-slate-200 shrink-0 min-h-[48px]">
+                <i class="fa-solid fa-arrow-left mr-2"></i> Back to Menu
+            </button>
+        </div>
+
+        <!-- PAUSE OVERLAY (Optimized for Android vertical + quick Gyro calibration) -->
+        <div id="pause-screen" class="hidden absolute inset-0 z-30 bg-slate-950/92 backdrop-blur-md safe-screen flex flex-col items-center justify-center text-center overflow-y-auto">
+            <h2 class="font-game text-3xl sm:text-4xl text-amber-400 mb-1">GAME PAUSED</h2>
+            <p class="text-slate-400 text-xs mb-6">Adjust tilt or resume your climb</p>
+
+            <div class="w-full max-w-xs space-y-3">
+                <button id="resume-btn" class="btn-arcade w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-game py-3.5 rounded-2xl text-xl shadow-lg min-h-[50px]">
+                    RESUME
+                </button>
+                <button id="pause-calibrate-btn" class="btn-arcade w-full bg-slate-800 hover:bg-slate-700 text-emerald-300 font-game py-3 rounded-2xl text-sm border border-emerald-500/30 min-h-[46px]">
+                    <i class="fa-solid fa-compass mr-1.5"></i> RE-CALIBRATE GYRO
+                </button>
+                <button id="restart-pause-btn" class="btn-arcade w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-game py-3.5 rounded-2xl text-lg shadow-lg min-h-[48px]">
+                    RESTART
+                </button>
+                <button id="quit-btn" class="btn-arcade w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-game py-3 rounded-2xl border border-white/10 min-h-[46px]">
+                    MAIN MENU
+                </button>
+            </div>
+        </div>
+
+        <!-- GAME OVER SCREEN (Optimized for Android vertical) -->
+        <div id="game-over-screen" class="hidden absolute inset-0 z-30 glass-panel safe-screen flex flex-col justify-between items-center text-center overflow-y-auto">
+            <div class="pt-4 shrink-0">
+                <div class="w-14 h-14 bg-rose-500/20 text-rose-500 rounded-full border border-rose-500/40 flex items-center justify-center mx-auto mb-2.5 animate-bounce">
+                    <i class="fa-solid fa-skull-crossbones text-2xl"></i>
+                </div>
+                <h2 class="font-game text-3xl sm:text-4xl text-rose-500 glow-text">GAME OVER</h2>
+                <p id="game-over-reason" class="text-slate-400 text-xs mt-1">Fell into the abyss!</p>
+            </div>
+
+            <!-- Stats Box -->
+            <div class="w-full max-w-xs bg-slate-900/80 rounded-2xl border border-white/10 p-4 space-y-3 shadow-inner my-auto">
+                <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                    <span class="text-slate-400 text-sm">Score Reached</span>
+                    <span id="final-score" class="font-game text-3xl text-yellow-300 tabular-nums">0</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                    <span class="text-slate-400 text-sm">High Score</span>
+                    <span id="best-score" class="font-game text-xl text-emerald-400 tabular-nums">0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 text-sm">Coins Collected</span>
+                    <span id="earned-coins" class="font-game text-xl text-yellow-400 flex items-center gap-1 tabular-nums">
+                        +0 <i class="fa-solid fa-coins text-sm"></i>
+                    </span>
+                </div>
+            </div>
+
+            <div class="w-full max-w-xs space-y-3 pb-2 shrink-0">
+                <button id="retry-btn" class="btn-arcade w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-game text-xl py-3.5 rounded-2xl flex items-center justify-center gap-2 min-h-[52px]">
+                    <i class="fa-solid fa-rotate-right"></i> PLAY AGAIN
+                </button>
+                <button id="gameover-home-btn" class="btn-arcade w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-game py-3 rounded-2xl border border-white/10 min-h-[46px]">
+                    MAIN MENU
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        // --- Toast Helper (replaces blocking alert()) ---
+        let toastTimeout = null;
+        function showToast(msg) {
+            const el = document.getElementById('toast-banner');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => el.classList.add('hidden'), 2400);
+        }
+
+        // --- Web Audio API Synthesizer Sound Engine ---
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playJump(freq = 400) {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(freq * 1.8, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playSpring() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(900, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playShoot() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            playBreak() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(60, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playCoin() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(1318.51, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playGameOver() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(70, this.ctx.currentTime + 0.6);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.6);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.6);
+            }
+        }
+
+        const audio = new AudioEngine();
+
+        // --- Expanded Skins & Maps Roster ---
+        const SKINS = [
+            { id: 'classic', name: 'Classic Doodler', price: 0, color: '#8b5cf6', accent: '#a855f7', eyes: '#2e1065', trail: '#a855f7' },
+            { id: 'ghost', name: 'Spooky Ghost', price: 50, color: '#f8fafc', accent: '#38bdf8', eyes: '#0f172a', trail: '#38bdf8' },
+            { id: 'alien', name: 'Astro Alien', price: 100, color: '#22c55e', accent: '#15803d', eyes: '#052e16', trail: '#22c55e' },
+            { id: 'ninja', name: 'Cyber Ninja', price: 180, color: '#1e293b', accent: '#e11d48', eyes: '#fbbf24', trail: '#e11d48' },
+            { id: 'bunny', name: 'Candy Bunny', price: 250, color: '#f472b6', accent: '#db2777', eyes: '#831843', trail: '#f472b6' },
+            { id: 'demon', name: 'Flame Demon', price: 350, color: '#ef4444', accent: '#b91c1c', eyes: '#fef08a', trail: '#ef4444' },
+            { id: 'pumpkin', name: 'Pumpkin King', price: 450, color: '#f97316', accent: '#ea580c', eyes: '#451a03', trail: '#f97316' },
+            { id: 'robocat', name: 'Robo Cat', price: 600, color: '#06b6d4', accent: '#0284c7', eyes: '#f43f5e', trail: '#06b6d4' },
+            { id: 'bat', name: 'Vampire Bat', price: 750, color: '#334155', accent: '#991b1b', eyes: '#f87171', trail: '#991b1b' },
+            { id: 'yeti', name: 'Snow Yeti', price: 900, color: '#e2e8f0', accent: '#3b82f6', eyes: '#1e3a8a', trail: '#93c5fd' },
+            { id: 'samurai', name: 'Cyber Samurai', price: 1100, color: '#0f172a', accent: '#eab308', eyes: '#ef4444', trail: '#eab308' },
+            { id: 'phoenix', name: 'Golden Phoenix', price: 1500, color: '#fbbf24', accent: '#ea580c', eyes: '#ffffff', trail: '#f59e0b' }
+        ];
+
+        const MAPS = [
+            { id: 'graveyard', name: 'Haunted Graveyard', price: 0, bgGrad: ['#0f172a', '#1e1b4b'], platformColor: '#334155', accent: '#a855f7' },
+            { id: 'sky', name: 'Sky Kingdom', price: 0, bgGrad: ['#0284c7', '#38bdf8'], platformColor: '#475569', accent: '#facc15' },
+            { id: 'cybercity', name: 'Cyber Neon', price: 200, bgGrad: ['#180828', '#4c1d95'], platformColor: '#0369a1', accent: '#f43f5e' },
+            { id: 'deepspace', name: 'Deep Space', price: 400, bgGrad: ['#030712', '#111827'], platformColor: '#1e293b', accent: '#38bdf8' },
+            { id: 'volcano', name: 'Volcanic Inferno', price: 600, bgGrad: ['#450a0a', '#7f1d1d'], platformColor: '#78350f', accent: '#f97316' },
+            { id: 'candyland', name: 'Candy Land', price: 800, bgGrad: ['#831843', '#f472b6'], platformColor: '#db2777', accent: '#fef08a' },
+            { id: 'forest', name: 'Mystic Forest', price: 1000, bgGrad: ['#064e3b', '#022c22'], platformColor: '#14532d', accent: '#34d399' },
+            { id: 'underworld', name: 'Underworld Lava', price: 1200, bgGrad: ['#310413', '#581c87'], platformColor: '#581c87', accent: '#ec4899' },
+            { id: 'glacier', name: 'Ice Glacier', price: 1400, bgGrad: ['#082f49', '#0c4a6e'], platformColor: '#0369a1', accent: '#7dd3fc' },
+            { id: 'temple', name: 'Golden Temple', price: 1800, bgGrad: ['#451a03', '#78350f'], platformColor: '#b45309', accent: '#fde047' }
+        ];
+
+        // --- Save State ---
+        let playerData = {
+            coins: parseInt(localStorage.getItem('dj_coins')) || 0,
+            highScore: parseInt(localStorage.getItem('dj_highscore')) || 0,
+            unlockedSkins: JSON.parse(localStorage.getItem('dj_skins')) || ['classic'],
+            unlockedMaps: JSON.parse(localStorage.getItem('dj_maps')) || ['graveyard', 'sky'],
+            selectedSkin: localStorage.getItem('dj_current_skin') || 'classic',
+            selectedMap: localStorage.getItem('dj_current_map') || 'graveyard',
+            gyroSensitivity: parseFloat(localStorage.getItem('dj_gyro_sens')) || 1.0,
+            gyroEnabled: localStorage.getItem('dj_gyro_enabled') !== 'false'
+        };
+
+        function savePlayerData() {
+            localStorage.setItem('dj_coins', playerData.coins);
+            localStorage.setItem('dj_highscore', playerData.highScore);
+            localStorage.setItem('dj_skins', JSON.stringify(playerData.unlockedSkins));
+            localStorage.setItem('dj_maps', JSON.stringify(playerData.unlockedMaps));
+            localStorage.setItem('dj_current_skin', playerData.selectedSkin);
+            localStorage.setItem('dj_current_map', playerData.selectedMap);
+            localStorage.setItem('dj_gyro_sens', String(playerData.gyroSensitivity));
+            localStorage.setItem('dj_gyro_enabled', String(playerData.gyroEnabled));
+        }
+
+        // --- Canvas Setup (High-DPI Android AMOLED Scaling) ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const previewCanvas = document.getElementById('skin-preview-canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+
+        let width = 390;
+        let height = 780;
+
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+            width = container.clientWidth || 390;
+            height = container.clientHeight || 780;
+            canvas.width = Math.round(width * dpr);
+            canvas.height = Math.round(height * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        if (window.ResizeObserver) {
+            new ResizeObserver(resizeCanvas).observe(document.getElementById('game-container'));
+        }
+        resizeCanvas();
+
+        // --- Input & Calibrated Gyroscope Engine ---
+        const keys = { left: false, right: false };
+        const touchInput = { left: false, right: false };
+
+        let rawGamma = 0;
+        let zeroGammaOffset = 0;
+        let targetTilt = 0;
+        let smoothedTilt = 0;
+        let gyroSignalReceived = false;
+        let gyroListenersBound = false;
+
+        function applyGammaReading(gammaDeg) {
+            if (typeof gammaDeg !== 'number' || Number.isNaN(gammaDeg)) return;
+            rawGamma = gammaDeg;
+            gyroSignalReceived = true;
+
+            const relativeDeg = rawGamma - zeroGammaOffset;
+            // Deadzone of +/- 2.2 degrees so character stays steady when held flat
+            const deadzone = 2.2;
+            let adjusted = 0;
+            if (Math.abs(relativeDeg) > deadzone) {
+                adjusted = relativeDeg - Math.sign(relativeDeg) * deadzone;
+            }
+            // Normalize +/- 26 degrees to [-1, 1] scaled by user sensitivity
+            const normalized = (adjusted / 26) * playerData.gyroSensitivity;
+            targetTilt = Math.min(Math.max(normalized, -1.25), 1.25);
+            updateGyroUI();
+        }
+
+        function updateGyroUI() {
+            const statusEl = document.getElementById('gyro-status');
+            const hudPill = document.getElementById('hud-gyro-pill');
+            const hudDeg = document.getElementById('hud-tilt-deg');
+            if (!statusEl) return;
+
+            if (!playerData.gyroEnabled) {
+                statusEl.innerText = 'Gyro: Off (Touch / Keys)';
+                statusEl.className = 'text-slate-400';
+                if (hudPill) hudPill.classList.add('hidden');
+            } else if (gyroSignalReceived) {
+                statusEl.innerText = 'Gyro: Active';
+                statusEl.className = 'text-emerald-400';
+                if (hudPill) {
+                    hudPill.classList.remove('hidden');
+                    hudPill.classList.add('flex');
+                }
+                if (hudDeg) {
+                    const deg = Math.round(rawGamma - zeroGammaOffset);
+                    hudDeg.innerText = `${deg > 0 ? '+' : ''}${deg}°`;
+                }
+            } else {
+                statusEl.innerText = 'Gyro: Ready (Tap to Enable)';
+                statusEl.className = 'text-slate-200';
+                if (hudPill) hudPill.classList.add('hidden');
+            }
+        }
+
+        function bindGyroListeners() {
+            if (gyroListenersBound) return;
+            gyroListenersBound = true;
+
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', (e) => {
+                    if (e.gamma !== null && typeof e.gamma === 'number') {
+                        applyGammaReading(e.gamma);
+                    }
+                });
+            }
+
+            // Fallback via accelerometer gravity vector on Android devices without orientation fusion
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', (e) => {
+                    if (gyroSignalReceived) return;
+                    const acc = e.accelerationIncludingGravity;
+                    if (acc && typeof acc.x === 'number' && typeof acc.y === 'number') {
+                        const approxGamma = Math.atan2(-acc.x, Math.sqrt(acc.y * acc.y + (acc.z || 0) * (acc.z || 0))) * (180 / Math.PI);
+                        if (Math.abs(approxGamma) > 0.01) {
+                            applyGammaReading(approxGamma);
+                        }
+                    }
+                });
+            }
+        }
+
+        // Native Android Kotlin SensorManager Bridge
+        window.__onAndroidGyro = function(gammaDeg) {
+            applyGammaReading(gammaDeg);
+        };
+
+        // Simulator postMessage Bridge (for testing gyro from APK Forge desktop simulator)
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SIMULATED_GYRO') {
+                if (event.data.reset) {
+                    gyroSignalReceived = false;
+                    targetTilt = 0;
+                    smoothedTilt = 0;
+                    updateGyroUI();
+                } else {
+                    playerData.gyroEnabled = true;
+                    applyGammaReading(Number(event.data.gamma) || 0);
+                }
+            }
+        });
+
+        // Auto-bind on Android / non-iOS browsers immediately
+        if (typeof DeviceOrientationEvent === 'undefined' || typeof DeviceOrientationEvent.requestPermission !== 'function') {
+            bindGyroListeners();
+        }
+
+        function calibrateGyro() {
+            zeroGammaOffset = rawGamma;
+            targetTilt = 0;
+            smoothedTilt = 0;
+            updateGyroUI();
+            showToast('Gyro tilt zeroed at current angle');
+        }
+
+        document.getElementById('gyro-enable-btn').addEventListener('click', () => {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            playerData.gyroEnabled = true;
+                            bindGyroListeners();
+                            savePlayerData();
+                            updateGyroUI();
+                            showToast('Gyroscope enabled');
+                        }
+                    })
+                    .catch(() => showToast('Gyroscope permission denied'));
+            } else {
+                playerData.gyroEnabled = !playerData.gyroEnabled;
+                bindGyroListeners();
+                savePlayerData();
+                updateGyroUI();
+            }
+        });
+
+        document.getElementById('gyro-calibrate-btn').addEventListener('click', calibrateGyro);
+        document.getElementById('pause-calibrate-btn').addEventListener('click', calibrateGyro);
+
+        document.querySelectorAll('.gyro-sens-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                playerData.gyroSensitivity = parseFloat(btn.dataset.sens);
+                savePlayerData();
+                document.querySelectorAll('.gyro-sens-btn').forEach(b => {
+                    b.className = 'gyro-sens-btn px-2 py-1 rounded-md text-slate-400';
+                });
+                btn.className = 'gyro-sens-btn px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold';
+            });
+        });
+
+        // Keyboard input
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+            if (e.key === ' ' || e.key === 'ArrowUp') shootBullet();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+        });
+
+        // Left / Right Touch Pads
+        const leftBtn = document.getElementById('touch-left-btn');
+        const rightBtn = document.getElementById('touch-right-btn');
+        const bindPad = (el, dir) => {
+            el.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                touchInput[dir] = true;
+            });
+            const release = (e) => {
+                e.stopPropagation();
+                touchInput[dir] = false;
+            };
+            el.addEventListener('pointerup', release);
+            el.addEventListener('pointercancel', release);
+            el.addEventListener('pointerleave', release);
+        };
+        bindPad(leftBtn, 'left');
+        bindPad(rightBtn, 'right');
+
+        // Canvas Tap Shooting
+        canvas.addEventListener('pointerdown', (e) => {
+            if (gameState === 'PLAYING') {
+                const rect = canvas.getBoundingClientRect();
+                const clickY = e.clientY - rect.top;
+                if (clickY < height - 88) {
+                    shootBullet();
+                }
+            }
+        });
+
+        document.getElementById('mobile-shoot-btn').addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            shootBullet();
+        });
+
+        // --- Entities & Game Variables ---
+        let gameState = 'MENU';
+        let score = 0;
+        let cameraY = 0;
+        let earnedCoinsSession = 0;
+
+        const player = {
+            x: 200,
+            y: 400,
+            width: 44,
+            height: 44,
+            vx: 0,
+            vy: 0,
+            speed: 7.2,
+            gravity: 0.4,
+            jumpStrength: -11.5,
+            facing: 'right',
+            hasJetpack: false,
+            jetpackTimer: 0
+        };
+
+        let platforms = [];
+        let items = [];
+        let enemies = [];
+        let bullets = [];
+        let particles = [];
+
+        // --- Drawing Helpers for All Character Skins ---
+        function drawPlayerCharacter(context, cx, cy, w, h, skinId, facing, vy) {
+            context.save();
+            context.translate(cx, cy);
+
+            const skin = SKINS.find(s => s.id === skinId) || SKINS[0];
+            if (facing === 'left') context.scale(-1, 1);
+
+            let stretchY = Math.min(Math.max(vy * 0.03, -0.2), 0.2);
+            context.scale(1 - stretchY, 1 + stretchY);
+
+            if (skinId === 'ghost') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.arc(0, -h * 0.1, w * 0.45, Math.PI, 0, false);
+                context.lineTo(w * 0.45, h * 0.4);
+                context.quadraticCurveTo(w * 0.22, h * 0.5, 0, h * 0.35);
+                context.quadraticCurveTo(-w * 0.22, h * 0.5, -w * 0.45, h * 0.4);
+                context.closePath();
+                context.fill();
+
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.arc(w * 0.15, -h * 0.15, 4, 0, Math.PI * 2);
+                context.arc(w * 0.35, -h * 0.15, 4, 0, Math.PI * 2);
+                context.fill();
+            } else if (skinId === 'alien') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.ellipse(0, 0, w * 0.45, h * 0.4, 0, 0, Math.PI * 2);
+                context.fill();
+
+                context.strokeStyle = skin.accent;
+                context.lineWidth = 3;
+                context.beginPath();
+                context.moveTo(0, -h * 0.35);
+                context.lineTo(0, -h * 0.6);
+                context.stroke();
+                context.fillStyle = '#facc15';
+                context.beginPath();
+                context.arc(0, -h * 0.65, 4, 0, Math.PI * 2);
+                context.fill();
+
+                context.fillStyle = '#ffffff';
+                context.beginPath();
+                context.arc(-w * 0.2, -h * 0.1, 5, 0, Math.PI * 2);
+                context.arc(0, -h * 0.15, 6, 0, Math.PI * 2);
+                context.arc(w * 0.2, -h * 0.1, 5, 0, Math.PI * 2);
+                context.fill();
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.arc(-w * 0.2, -h * 0.1, 2.5, 0, Math.PI * 2);
+                context.arc(0, -h * 0.15, 3, 0, Math.PI * 2);
+                context.arc(w * 0.2, -h * 0.1, 2.5, 0, Math.PI * 2);
+                context.fill();
+            } else if (skinId === 'pumpkin') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.ellipse(0, 0, w * 0.48, h * 0.42, 0, 0, Math.PI * 2);
+                context.fill();
+                context.fillStyle = '#15803d';
+                context.fillRect(-3, -h * 0.52, 6, 8);
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.moveTo(w * 0.08, -h * 0.1); context.lineTo(w * 0.22, -h * 0.2); context.lineTo(w * 0.22, -h * 0.05);
+                context.moveTo(w * 0.28, -h * 0.1); context.lineTo(w * 0.42, -h * 0.2); context.lineTo(w * 0.42, -h * 0.05);
+                context.fill();
+            } else if (skinId === 'ninja') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.roundRect(-w * 0.4, -h * 0.4, w * 0.8, h * 0.8, 10);
+                context.fill();
+                context.fillStyle = skin.accent;
+                context.fillRect(-w * 0.4, -h * 0.3, w * 0.8, h * 0.18);
+                context.fillStyle = skin.eyes;
+                context.fillRect(w * 0.05, -h * 0.22, w * 0.3, h * 0.08);
+            } else if (skinId === 'bunny') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.ellipse(-w * 0.2, -h * 0.5, 6, 16, -0.1, 0, Math.PI * 2);
+                context.ellipse(w * 0.2, -h * 0.5, 6, 16, 0.1, 0, Math.PI * 2);
+                context.fill();
+                context.beginPath();
+                context.arc(0, 0, w * 0.42, 0, Math.PI * 2);
+                context.fill();
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.arc(w * 0.12, -h * 0.1, 4, 0, Math.PI * 2);
+                context.arc(w * 0.32, -h * 0.1, 4, 0, Math.PI * 2);
+                context.fill();
+            } else if (skinId === 'demon') {
+                context.fillStyle = skin.accent;
+                context.beginPath();
+                context.moveTo(-w * 0.3, -h * 0.2); context.lineTo(-w * 0.45, -h * 0.65); context.lineTo(-w * 0.15, -h * 0.35);
+                context.moveTo(w * 0.3, -h * 0.2); context.lineTo(w * 0.45, -h * 0.65); context.lineTo(w * 0.15, -h * 0.35);
+                context.fill();
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.arc(0, 0, w * 0.44, 0, Math.PI * 2);
+                context.fill();
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.arc(w * 0.15, -h * 0.1, 5, 0, Math.PI * 2);
+                context.arc(w * 0.35, -h * 0.1, 5, 0, Math.PI * 2);
+                context.fill();
+            } else if (skinId === 'robocat') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.moveTo(-w * 0.35, -h * 0.2); context.lineTo(-w * 0.4, -h * 0.55); context.lineTo(-w * 0.1, -h * 0.35);
+                context.moveTo(w * 0.35, -h * 0.2); context.lineTo(w * 0.4, -h * 0.55); context.lineTo(w * 0.1, -h * 0.35);
+                context.fill();
+                context.beginPath();
+                context.roundRect(-w * 0.42, -h * 0.35, w * 0.84, h * 0.75, 12);
+                context.fill();
+                context.fillStyle = skin.eyes;
+                context.fillRect(-w * 0.05, -h * 0.2, w * 0.4, h * 0.16);
+            } else if (skinId === 'bat') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.moveTo(-w * 0.5, -h * 0.2); context.lineTo(-w * 0.7, -h * 0.5); context.lineTo(-w * 0.3, -h * 0.3);
+                context.moveTo(w * 0.5, -h * 0.2); context.lineTo(w * 0.7, -h * 0.5); context.lineTo(w * 0.3, -h * 0.3);
+                context.fill();
+                context.beginPath();
+                context.arc(0, 0, w * 0.4, 0, Math.PI * 2);
+                context.fill();
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.arc(w * 0.15, -h * 0.1, 4, 0, Math.PI * 2);
+                context.arc(w * 0.35, -h * 0.1, 4, 0, Math.PI * 2);
+                context.fill();
+            } else if (skinId === 'yeti') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.roundRect(-w * 0.45, -h * 0.4, w * 0.9, h * 0.8, 16);
+                context.fill();
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.arc(w * 0.15, -h * 0.15, 5, 0, Math.PI * 2);
+                context.arc(w * 0.35, -h * 0.15, 5, 0, Math.PI * 2);
+                context.fill();
+            } else if (skinId === 'samurai') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.roundRect(-w * 0.4, -h * 0.4, w * 0.8, h * 0.8, 10);
+                context.fill();
+                context.fillStyle = skin.accent;
+                context.beginPath();
+                context.arc(0, -h * 0.45, w * 0.4, Math.PI, 0, false);
+                context.fill();
+                context.fillStyle = skin.eyes;
+                context.fillRect(w * 0.05, -h * 0.2, w * 0.3, h * 0.1);
+            } else if (skinId === 'phoenix') {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.arc(0, 0, w * 0.45, 0, Math.PI * 2);
+                context.fill();
+                context.fillStyle = skin.accent;
+                context.beginPath();
+                context.moveTo(-w * 0.4, 0); context.lineTo(-w * 0.7, h * 0.3); context.lineTo(-w * 0.2, h * 0.2);
+                context.moveTo(w * 0.4, 0); context.lineTo(w * 0.7, h * 0.3); context.lineTo(w * 0.2, h * 0.2);
+                context.fill();
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.arc(w * 0.2, -h * 0.15, 4, 0, Math.PI * 2);
+                context.arc(w * 0.38, -h * 0.15, 4, 0, Math.PI * 2);
+                context.fill();
+            } else {
+                context.fillStyle = skin.color;
+                context.beginPath();
+                context.arc(0, -h * 0.1, w * 0.42, Math.PI * 0.7, Math.PI * 2.3, false);
+                context.roundRect(-w * 0.42, -h * 0.1, w * 0.84, h * 0.5, [0, 0, 12, 12]);
+                context.fill();
+
+                context.fillStyle = skin.eyes;
+                context.beginPath();
+                context.arc(w * 0.15, -h * 0.18, 4.5, 0, Math.PI * 2);
+                context.arc(w * 0.36, -h * 0.18, 4.5, 0, Math.PI * 2);
+                context.fill();
+
+                context.fillStyle = skin.accent;
+                context.beginPath();
+                context.arc(w * 0.28, -h * 0.05, 5, 0, Math.PI * 2);
+                context.fill();
+            }
+
+            if (player.hasJetpack) {
+                context.fillStyle = '#94a3b8';
+                context.fillRect(-w * 0.55, -h * 0.2, 8, 24);
+                context.fillStyle = Math.random() > 0.5 ? '#f97316' : '#eab308';
+                context.beginPath();
+                context.moveTo(-w * 0.55, h * 0.3);
+                context.lineTo(-w * 0.45, h * 0.7 + Math.random() * 8);
+                context.lineTo(-w * 0.35, h * 0.3);
+                context.fill();
+            }
+
+            context.restore();
+        }
+
+        function updateSkinPreview() {
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+            drawPlayerCharacter(previewCtx, 50, 50, 44, 44, playerData.selectedSkin, 'right', 0);
+            const skinObj = SKINS.find(s => s.id === playerData.selectedSkin);
+            document.getElementById('current-skin-name').innerText = skinObj ? skinObj.name : '';
+            document.getElementById('menu-best-score').innerText = playerData.highScore;
+        }
+
+        // --- Procedural World Generation ---
+        function createPlatform(y, forcedType = null) {
+            const pWidth = 72;
+            const pHeight = 16;
+            const x = Math.random() * Math.max(10, width - pWidth);
+
+            let type = 'normal';
+            const rand = Math.random();
+
+            if (!forcedType) {
+                if (rand < 0.2) type = 'moving';
+                else if (rand < 0.35) type = 'broken';
+                else if (rand < 0.5) type = 'spring';
+            } else {
+                type = forcedType;
+            }
+
+            const platform = {
+                x, y,
+                width: pWidth,
+                height: pHeight,
+                type,
+                vx: type === 'moving' ? (Math.random() > 0.5 ? 2 : -2) : 0,
+                broken: false,
+                hasSpring: type === 'spring'
+            };
+
+            platforms.push(platform);
+
+            if (type !== 'broken' && Math.random() < 0.3) {
+                items.push({
+                    x: x + pWidth / 2 - 10,
+                    y: y - 24,
+                    width: 20,
+                    height: 20,
+                    type: 'coin',
+                    collected: false
+                });
+            }
+
+            if (type === 'normal' && Math.random() < 0.04 && score > 500) {
+                items.push({
+                    x: x + pWidth / 2 - 12,
+                    y: y - 28,
+                    width: 24,
+                    height: 28,
+                    type: 'jetpack',
+                    collected: false
+                });
+            }
+
+            if (Math.random() < 0.08 && y < cameraY - 100 && score > 800) {
+                enemies.push({
+                    x: Math.random() * Math.max(10, width - 40),
+                    y: y - 60,
+                    width: 40,
+                    height: 40,
+                    vx: Math.random() > 0.5 ? 1.5 : -1.5,
+                    alive: true
+                });
+            }
+        }
+
+        function initWorld() {
+            resizeCanvas();
+            platforms = [];
+            items = [];
+            enemies = [];
+            bullets = [];
+            particles = [];
+            cameraY = 0;
+            score = 0;
+            earnedCoinsSession = 0;
+
+            platforms.push({
+                x: width / 2 - 40,
+                y: height - 110,
+                width: 80,
+                height: 16,
+                type: 'normal',
+                vx: 0
+            });
+
+            for (let y = height - 190; y > -500; y -= 60 + Math.random() * 20) {
+                createPlatform(y);
+            }
+
+            player.x = width / 2 - 20;
+            player.y = height - 170;
+            player.vx = 0;
+            player.vy = player.jumpStrength;
+            player.hasJetpack = false;
+        }
+
+        function shootBullet() {
+            if (gameState !== 'PLAYING') return;
+            bullets.push({
+                x: player.x + player.width / 2,
+                y: player.y,
+                radius: 5,
+                vy: -14
+            });
+            audio.playShoot();
+        }
+
+        function createParticles(x, y, color, count = 8) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    radius: Math.random() * 4 + 2,
+                    color,
+                    alpha: 1
+                });
+            }
+        }
+
+        // --- Main Game Loop & Physics ---
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            // Smooth low-pass filter on Gyro tilt
+            smoothedTilt += (targetTilt - smoothedTilt) * 0.28;
+
+            const manualLeft = keys.left || touchInput.left;
+            const manualRight = keys.right || touchInput.right;
+
+            if (manualLeft) {
+                player.vx = -player.speed;
+            } else if (manualRight) {
+                player.vx = player.speed;
+            } else if (playerData.gyroEnabled && gyroSignalReceived) {
+                player.vx = smoothedTilt * player.speed * 1.35;
+            } else {
+                player.vx *= 0.8;
+            }
+
+            if (player.vx > 0.4) player.facing = 'right';
+            if (player.vx < -0.4) player.facing = 'left';
+
+            player.x += player.vx;
+
+            if (player.x < -player.width) player.x = width;
+            if (player.x > width) player.x = -player.width;
+
+            if (player.hasJetpack) {
+                player.vy = -12;
+                player.jetpackTimer--;
+                if (Math.random() < 0.6) {
+                    createParticles(player.x + player.width / 2, player.y + player.height, '#f97316', 2);
+                }
+                if (player.jetpackTimer <= 0) {
+                    player.hasJetpack = false;
+                }
+            } else {
+                player.vy += player.gravity;
+            }
+
+            player.y += player.vy;
+
+            if (player.y < height * 0.45) {
+                const diff = height * 0.45 - player.y;
+                player.y = height * 0.45;
+                cameraY += diff;
+
+                platforms.forEach(p => p.y += diff);
+                items.forEach(i => i.y += diff);
+                enemies.forEach(e => e.y += diff);
+                bullets.forEach(b => b.y += diff);
+                particles.forEach(pt => pt.y += diff);
+
+                score = Math.floor(cameraY);
+            }
+
+            if (player.vy > 0 && !player.hasJetpack) {
+                platforms.forEach(p => {
+                    if (
+                        player.x + player.width * 0.8 > p.x &&
+                        player.x + player.width * 0.2 < p.x + p.width &&
+                        player.y + player.height >= p.y &&
+                        player.y + player.height <= p.y + p.height + 12
+                    ) {
+                        if (p.type === 'broken') {
+                            p.broken = true;
+                            audio.playBreak();
+                            createParticles(p.x + p.width / 2, p.y, '#94a3b8', 10);
+                        } else {
+                            player.vy = player.jumpStrength;
+                            if (p.hasSpring) {
+                                player.vy = player.jumpStrength * 1.6;
+                                audio.playSpring();
+                                createParticles(p.x + p.width / 2, p.y, '#facc15', 8);
+                            } else {
+                                audio.playJump();
+                            }
+                        }
+                    }
+                });
+            }
+
+            platforms.forEach(p => {
+                if (p.type === 'moving') {
+                    p.x += p.vx;
+                    if (p.x <= 0 || p.x + p.width >= width) p.vx *= -1;
+                }
+            });
+
+            platforms = platforms.filter(p => !p.broken && p.y < height + 50);
+
+            const highestPlatformY = Math.min(...platforms.map(p => p.y));
+            if (highestPlatformY > -100) {
+                createPlatform(highestPlatformY - (60 + Math.random() * 25));
+            }
+
+            items.forEach(item => {
+                if (!item.collected &&
+                    player.x < item.x + item.width &&
+                    player.x + player.width > item.x &&
+                    player.y < item.y + item.height &&
+                    player.y + player.height > item.y) {
+
+                    item.collected = true;
+                    if (item.type === 'coin') {
+                        earnedCoinsSession += 1;
+                        playerData.coins += 1;
+                        audio.playCoin();
+                        createParticles(item.x, item.y, '#facc15', 6);
+                    } else if (item.type === 'jetpack') {
+                        player.hasJetpack = true;
+                        player.jetpackTimer = 150;
+                        audio.playSpring();
+                    }
+                }
+            });
+            items = items.filter(i => !i.collected && i.y < height + 50);
+
+            enemies.forEach(e => {
+                e.x += e.vx;
+                if (e.x <= 0 || e.x + e.width >= width) e.vx *= -1;
+
+                if (e.alive && !player.hasJetpack &&
+                    player.x < e.x + e.width * 0.8 &&
+                    player.x + player.width > e.x + e.width * 0.2 &&
+                    player.y < e.y + e.height * 0.8 &&
+                    player.y + player.height > e.y) {
+
+                    if (player.vy > 0 && player.y + player.height < e.y + 20) {
+                        e.alive = false;
+                        player.vy = player.jumpStrength;
+                        audio.playJump(600);
+                        createParticles(e.x, e.y, '#f43f5e', 12);
+                    } else {
+                        triggerGameOver('Defeated by a Flying Monster!');
+                    }
+                }
+            });
+
+            bullets.forEach(b => {
+                b.y += b.vy;
+                enemies.forEach(e => {
+                    if (e.alive && Math.hypot(b.x - (e.x + e.width / 2), b.y - (e.y + e.height / 2)) < e.width / 2 + b.radius) {
+                        e.alive = false;
+                        b.hit = true;
+                        audio.playBreak();
+                        createParticles(e.x, e.y, '#a855f7', 15);
+                    }
+                });
+            });
+            bullets = bullets.filter(b => !b.hit && b.y > -20);
+            enemies = enemies.filter(e => e.alive && e.y < height + 100);
+
+            particles.forEach(pt => {
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.alpha -= 0.03;
+            });
+            particles = particles.filter(pt => pt.alpha > 0);
+
+            if (player.y > height + 80) {
+                triggerGameOver('Fell into the Spooky Abyss!');
+            }
+
+            document.getElementById('hud-score').innerText = score;
+            document.getElementById('hud-coins').innerText = playerData.coins;
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, width, height);
+
+            const mapTheme = MAPS.find(m => m.id === playerData.selectedMap) || MAPS[0];
+
+            const grad = ctx.createLinearGradient(0, 0, 0, height);
+            grad.addColorStop(0, mapTheme.bgGrad[0]);
+            grad.addColorStop(1, mapTheme.bgGrad[1]);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            for (let i = 0; i < 15; i++) {
+                const sx = (i * 73 + cameraY * 0.1) % width;
+                const sy = (i * 117 + cameraY * 0.2) % height;
+                ctx.beginPath();
+                ctx.arc(sx, sy, (i % 3) + 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            platforms.forEach(p => {
+                ctx.save();
+                if (p.type === 'broken') {
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillRect(p.x, p.y, p.width, p.height);
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + 10, p.y); ctx.lineTo(p.x + p.width - 10, p.y + p.height);
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = p.type === 'moving' ? mapTheme.accent : mapTheme.platformColor;
+                    ctx.beginPath();
+                    ctx.roundRect(p.x, p.y, p.width, p.height, 8);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    ctx.stroke();
+
+                    if (p.hasSpring) {
+                        ctx.fillStyle = '#eab308';
+                        ctx.fillRect(p.x + p.width / 2 - 8, p.y - 8, 16, 8);
+                    }
+                }
+                ctx.restore();
+            });
+
+            items.forEach(item => {
+                if (item.type === 'coin') {
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath();
+                    ctx.arc(item.x + 10, item.y + 10, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ca8a04';
+                    ctx.font = '900 10px sans-serif';
+                    ctx.fillText('$', item.x + 7, item.y + 13);
+                } else if (item.type === 'jetpack') {
+                    ctx.fillStyle = '#06b6d4';
+                    ctx.fillRect(item.x, item.y, item.width, item.height);
+                    ctx.fillStyle = '#f97316';
+                    ctx.fillRect(item.x + 4, item.y - 4, 16, 4);
+                }
+            });
+
+            enemies.forEach(e => {
+                ctx.fillStyle = '#a855f7';
+                ctx.beginPath();
+                ctx.arc(e.x + e.width / 2, e.y + e.height / 2, e.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(e.x + 12, e.y + 14, 5, 0, Math.PI * 2);
+                ctx.arc(e.x + 28, e.y + 14, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(e.x + 13, e.y + 13, 3, 3);
+                ctx.fillRect(e.x + 27, e.y + 13, 3, 3);
+            });
+
+            ctx.fillStyle = '#f43f5e';
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            drawPlayerCharacter(
+                ctx,
+                player.x + player.width / 2,
+                player.y + player.height / 2,
+                player.width,
+                player.height,
+                playerData.selectedSkin,
+                player.facing,
+                player.vy
+            );
+
+            particles.forEach(pt => {
+                ctx.save();
+                ctx.globalAlpha = pt.alpha;
+                ctx.fillStyle = pt.color;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            audio.init();
+            initWorld();
+            gameState = 'PLAYING';
+            updateGyroUI();
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('pause-screen').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('touch-controls').classList.remove('hidden');
+            document.getElementById('touch-controls').classList.add('flex');
+        }
+
+        function triggerGameOver(reason) {
+            gameState = 'GAMEOVER';
+            audio.playGameOver();
+
+            if (score > playerData.highScore) {
+                playerData.highScore = score;
+            }
+            savePlayerData();
+
+            document.getElementById('game-over-reason').innerText = reason;
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('best-score').innerText = playerData.highScore;
+            document.getElementById('earned-coins').innerHTML = `+${earnedCoinsSession} <i class="fa-solid fa-coins text-sm"></i>`;
+
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('touch-controls').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+
+        function renderShop() {
+            const grid = document.getElementById('skins-grid');
+            document.getElementById('shop-coins').innerText = playerData.coins;
+            grid.innerHTML = '';
+
+            SKINS.forEach(skin => {
+                const unlocked = playerData.unlockedSkins.includes(skin.id);
+                const selected = playerData.selectedSkin === skin.id;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-2xl border flex flex-col items-center justify-between text-center ${selected ? 'border-amber-400 bg-amber-500/10' : 'border-white/10 bg-slate-800/50'}`;
+
+                card.innerHTML = `
+                    <div class="w-11 h-11 rounded-full mb-2 flex items-center justify-center shadow-md" style="background: ${skin.color}">
+                        <div class="w-3 h-3 rounded-full" style="background: ${skin.eyes}"></div>
+                    </div>
+                    <div class="font-game text-xs sm:text-sm text-slate-200">${skin.name}</div>
+                    <div class="mt-2 w-full">
+                        ${selected ? `
+                            <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">EQUIPPED</span>
+                        ` : unlocked ? `
+                            <button onclick="equipSkin('${skin.id}')" class="w-full bg-slate-700 hover:bg-slate-600 font-game text-xs py-2 rounded-xl min-h-[36px]">EQUIP</button>
+                        ` : `
+                            <button onclick="buySkin('${skin.id}', ${skin.price})" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-game text-xs py-2 rounded-xl flex items-center justify-center gap-1 min-h-[36px]">
+                                ${skin.price} <i class="fa-solid fa-coins"></i>
+                            </button>
+                        `}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function renderMaps() {
+            const grid = document.getElementById('maps-grid');
+            grid.innerHTML = '';
+
+            MAPS.forEach(map => {
+                const unlocked = playerData.unlockedMaps.includes(map.id);
+                const selected = playerData.selectedMap === map.id;
+                const card = document.createElement('div');
+                card.className = `p-3.5 rounded-2xl border flex justify-between items-center gap-3 ${selected ? 'border-purple-400 bg-purple-500/10' : 'border-white/10 bg-slate-800/50'}`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-xl shrink-0" style="background: linear-gradient(135deg, ${map.bgGrad[0]}, ${map.bgGrad[1]})"></div>
+                        <div class="text-left min-w-0">
+                            <div class="font-game text-sm text-slate-200 truncate">${map.name}</div>
+                            <div class="text-xs text-slate-400">${map.price === 0 ? 'Free' : map.price + ' Coins'}</div>
+                        </div>
+                    </div>
+                    <div class="shrink-0">
+                        ${selected ? `
+                            <span class="text-xs font-bold text-purple-400 uppercase tracking-wider">ACTIVE</span>
+                        ` : unlocked ? `
+                            <button onclick="selectMap('${map.id}')" class="font-game text-xs px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 min-h-[38px]">SELECT</button>
+                        ` : `
+                            <button onclick="buyMap('${map.id}', ${map.price})" class="font-game text-xs px-3.5 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white flex items-center gap-1 min-h-[38px]">
+                                ${map.price} <i class="fa-solid fa-coins"></i>
+                            </button>
+                        `}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        window.equipSkin = function(id) {
+            playerData.selectedSkin = id;
+            savePlayerData();
+            renderShop();
+            updateSkinPreview();
+        };
+
+        window.buySkin = function(id, price) {
+            if (playerData.coins >= price) {
+                playerData.coins -= price;
+                playerData.unlockedSkins.push(id);
+                playerData.selectedSkin = id;
+                savePlayerData();
+                renderShop();
+                updateSkinPreview();
+                audio.playCoin();
+            } else {
+                showToast(`Need ${price - playerData.coins} more coins to unlock`);
+            }
+        };
+
+        window.selectMap = function(id) {
+            playerData.selectedMap = id;
+            savePlayerData();
+            renderMaps();
+        };
+
+        window.buyMap = function(id, price) {
+            if (playerData.coins >= price) {
+                playerData.coins -= price;
+                playerData.unlockedMaps.push(id);
+                playerData.selectedMap = id;
+                savePlayerData();
+                renderMaps();
+                audio.playCoin();
+            } else {
+                showToast(`Need ${price - playerData.coins} more coins for this map`);
+            }
+        };
+
+        document.getElementById('play-btn').addEventListener('click', startGame);
+        document.getElementById('retry-btn').addEventListener('click', startGame);
+
+        document.getElementById('pause-btn').addEventListener('click', () => {
+            gameState = 'PAUSED';
+            document.getElementById('pause-screen').classList.remove('hidden');
+        });
+
+        document.getElementById('resume-btn').addEventListener('click', () => {
+            gameState = 'PLAYING';
+            document.getElementById('pause-screen').classList.add('hidden');
+        });
+
+        document.getElementById('restart-pause-btn').addEventListener('click', startGame);
+
+        const returnHome = () => {
+            gameState = 'MENU';
+            document.getElementById('pause-screen').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('touch-controls').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            updateSkinPreview();
+        };
+
+        document.getElementById('quit-btn').addEventListener('click', returnHome);
+        document.getElementById('gameover-home-btn').addEventListener('click', returnHome);
+
+        document.getElementById('open-shop-btn').addEventListener('click', () => {
+            renderShop();
+            document.getElementById('shop-screen').classList.remove('hidden');
+        });
+        document.getElementById('close-shop-btn').addEventListener('click', () => {
+            document.getElementById('shop-screen').classList.add('hidden');
+        });
+
+        document.getElementById('open-maps-btn').addEventListener('click', () => {
+            renderMaps();
+            document.getElementById('maps-screen').classList.remove('hidden');
+        });
+        document.getElementById('close-maps-btn').addEventListener('click', () => {
+            document.getElementById('maps-screen').classList.add('hidden');
+        });
+
+        document.getElementById('audio-toggle-btn').addEventListener('click', () => {
+            audio.enabled = !audio.enabled;
+            const btn = document.getElementById('audio-toggle-btn');
+            if (audio.enabled) {
+                btn.innerHTML = `<i class="fa-solid fa-volume-high" id="audio-icon"></i> Sound ON`;
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-volume-xmark text-rose-400" id="audio-icon"></i> Sound OFF`;
+            }
+        });
+
+        // Sync initial sensitivity highlight & UI
+        document.querySelectorAll('.gyro-sens-btn').forEach(btn => {
+            if (Math.abs(parseFloat(btn.dataset.sens) - playerData.gyroSensitivity) < 0.05) {
+                btn.className = 'gyro-sens-btn px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold';
+            } else {
+                btn.className = 'gyro-sens-btn px-2 py-1 rounded-md text-slate-400';
+            }
+        });
+        updateGyroUI();
+        updateSkinPreview();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
