@@ -1,0 +1,12 @@
+{
+  "appId": "com.spookyarcade.doodlejump",
+  "appName": "Spooky Doodle Jump",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0f172a",
+    "allowMixedContent": false
+  }
+}
