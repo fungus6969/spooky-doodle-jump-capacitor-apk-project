@@ -26,7 +26,6 @@ jobs:
       - name: Build Debug APK
         run: |
           npm install
-          npx cap add android
           npx cap sync android
           cd android
           chmod +x gradlew
